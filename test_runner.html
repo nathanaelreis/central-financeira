@@ -1,0 +1,86 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Testes Automatizados dos Motores Financeiros</title>
+</head>
+<body style="font-family: monospace; background: #0f172a; color: #f8fafc; padding: 20px;">
+  <h2>🧪 Executando Testes Unitários dos Motores Financeiros...</h2>
+  <div id="results"></div>
+
+  <script type="module">
+    import { calculateCompoundInterest, compareInvestmentProducts } from "./src/core/compound_interest.js";
+    import { calculateFinancialHealth } from "./src/core/financial_health.js";
+    import { generateNextBestActions } from "./src/core/next_best_actions.js";
+    import { calculateVehicleTCO } from "./src/core/vehicle_tco.js";
+    import { simulateMortgage } from "./src/core/mortgage_simulator.js";
+    import { generateProjections } from "./src/core/projection_engine.js";
+    import { categorizeTransactionDescription, parseRawStatementText } from "./src/core/categorizer.js";
+
+    const resultsEl = document.getElementById("results");
+    function assert(desc, condition) {
+      const p = document.createElement("p");
+      if (condition) {
+        p.innerHTML = `✅ <span style="color: #4ade80;">[PASS]</span> ${desc}`;
+      } else {
+        p.innerHTML = `❌ <span style="color: #f87171;">[FAIL]</span> ${desc}`;
+      }
+      resultsEl.appendChild(p);
+    }
+
+    try {
+      // Test 1: Juros Compostos
+      const ci = calculateCompoundInterest({ initialAmount: 4000, monthlyContribution: 200, annualRatePct: 10.4, years: 5 });
+      assert("Juros Compostos: Montante final maior que o total investido", ci.finalNetBalance > ci.finalInvested);
+      assert("Juros Compostos: Alíquota de IR aplicada corretamente (15% acima de 2 anos)", ci.finalTax > 0);
+
+      // Test 2: Saude Financeira
+      const fh = calculateFinancialHealth({
+        netIncome: 3269,
+        monthlyInvestments: 200,
+        emergencyFundBalance: 4000,
+        essentialMonthlyExpenses: 1630,
+        totalMonthlyDebtInstallments: 0,
+        totalCreditCardBills: 1000,
+        totalCreditLimit: 4300,
+      });
+      assert("Saude Financeira: Score entre 0 e 100", fh.totalScore >= 0 && fh.totalScore <= 100);
+      assert("Saude Financeira: 6 pilares presentes no detalhamento", Object.keys(fh.breakdown).length === 6);
+
+      // Test 3: Next Best Actions
+      const nba = generateNextBestActions({
+        profile: { netSalary: 3269, monthlyInvestmentPlanned: 200, viacredAmount: 4000 },
+        accounts: [{ name: "Viacred", balance: 4000, type: "COOPERATIVE_CAPITAL" }],
+        creditCards: [{ limit: 2500, currentBill: 680 }],
+        goals: [{ type: "EMERGENCY_RESERVE", targetAmount: 9780, currentAmount: 4000 }],
+      });
+      assert("Next Best Actions: Gera entre 3 e 5 recomendacoes", nba.length >= 3 && nba.length <= 5);
+      assert("Next Best Actions: Detecta migracao da Viacred", nba.some(a => a.id === "action_viacred_migration"));
+
+      // Test 4: TCO Biz vs Carro
+      const tco = calculateVehicleTCO({ bizFipeValue: 8500, carPrice: 38000 });
+      assert("TCO: Carro e consideravelmente mais caro que a Biz mensalmente", tco.car.totalMonthlyCostWithFinancing > tco.biz.totalMonthlyCost * 3);
+      assert("TCO: Calcula custo de oportunidade em 5 anos", tco.comparison.opportunityCost5Years > 0);
+
+      // Test 5: Financiamento Habitacional
+      const mort = simulateMortgage({ propertyValue: 200000, fgtsBalance: 12500, monthlyNetIncome: 3269 });
+      assert("Financiamento: Calcula entrada e amortizacao SAC e PRICE", mort.downPaymentNeeded === 40000);
+      assert("Financiamento: Avalia teto de 30% da renda", typeof mort.sac.isViable === "boolean");
+
+      // Test 6: Projecoes 60 meses
+      const proj = generateProjections({ monthlyNetSalary: 3269, monthlyEssentialExpenses: 1630, monthlyVariableExpenses: 817, monthlyPlannedInvestment: 200 });
+      assert("Projecoes: Gera 60 meses completos", proj.months.length === 60);
+      assert("Projecoes: Checkpoint 60 meses com patrimonio acumulado", proj.checkpoints.m60.totalNetWorth > 0);
+
+      // Test 7: Categorizacao Inteligente
+      const catFood = categorizeTransactionDescription("iFood Delivery Burger");
+      assert("Categorizador: Identifica iFood como Lazer/Restaurantes", catFood.category === "Lazer & Restaurantes");
+      const catGas = categorizeTransactionDescription("Posto Ipiranga Gasolina");
+      assert("Categorizador: Identifica Posto como Transporte", catGas.category === "Transporte & Biz");
+
+    } catch (e) {
+      resultsEl.innerHTML += `<p style="color: #ef4444;">Erro na execução dos testes: ${e.message}</p>`;
+    }
+  </script>
+</body>
+</html>
